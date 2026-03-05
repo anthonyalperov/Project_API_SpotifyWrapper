@@ -1,6 +1,4 @@
-.env
-spotify.db
+venv/
 __pycache__/
 *.pyc
-venv/
-.venv/
+.env
