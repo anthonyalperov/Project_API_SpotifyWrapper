@@ -17,3 +17,20 @@ A full-stack personal analytics platform that ingests Spotify listening history 
 - Streamlit dashboard: KPIs, charts, heatmap, search + drilldown
 
 ## Project Structure
+spotify-analytics/
+├─ main.py
+├─ db.py
+├─ models.py
+├─ dashboard.py
+├─ spotify.db
+├─ requirements.txt
+└─ .streamlit/config.toml
+## Setup (Local)
+1) Create a Spotify developer app and add this Redirect URI:
+- `http://127.0.0.1:8000/callback`
+
+2) Create `.env`:
+```env
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:8000/callback
