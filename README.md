@@ -28,6 +28,27 @@ spotify-analytics/
 ## Setup (Local)
 1) Create a Spotify developer app and add this Redirect URI:
 - `http://127.0.0.1:8000/callback`
+Install deps:
+
+pip install -r requirements.txt
+
+Run API:
+
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+
+Login:
+
+Open http://127.0.0.1:8000/login in a browser
+
+Sync data:
+
+curl -X POST "http://127.0.0.1:8000/sync/recent?limit=50"
+
+Run dashboard:
+
+streamlit run dashboard.py
+
+Dashboard runs at http://localhost:8501
 
 2) Create `.env`:
 ```env
