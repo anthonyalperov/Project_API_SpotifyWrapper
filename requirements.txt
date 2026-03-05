@@ -1,7 +1,7 @@
-fastapi
-uvicorn[standard]
+streamlit
 requests
 python-dotenv
 sqlalchemy
+fastapi
+uvicorn[standard]
 pydantic
-streamlit

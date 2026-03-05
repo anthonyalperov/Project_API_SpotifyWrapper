@@ -1,4 +1,16 @@
-venv/
+# secrets
+.env
+.streamlit/secrets.toml
+
+# python
 __pycache__/
 *.pyc
-.env
+
+# env
+venv/
+
+# local db
+*.db
+
+# misc
+.DS_Store
