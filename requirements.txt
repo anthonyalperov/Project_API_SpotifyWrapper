@@ -5,3 +5,7 @@ sqlalchemy
 fastapi
 uvicorn[standard]
 pydantic
+
+matplotlib
+
+matplotlib
