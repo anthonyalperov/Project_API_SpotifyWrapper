@@ -1,0 +1,10 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+requests==2.32.3
+python-dotenv==1.0.1
+SQLAlchemy==2.0.32
+
+streamlit==1.37.1
+pandas==2.2.2
+plotly==5.23.0
+matplotlib==3.9.2
