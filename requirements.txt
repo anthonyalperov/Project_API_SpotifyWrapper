@@ -6,3 +6,6 @@ sqlalchemy
 fastapi
 uvicorn[standard]
 pydantic
+pandas
+plotly
+numpy
