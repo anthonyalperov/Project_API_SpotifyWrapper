@@ -21,9 +21,12 @@ from models import Artist, Play, Track, User
 
 load_dotenv()
 
-CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "YOUR_CLIENT_ID_HERE")
-CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "YOUR_CLIENT_SECRET_HERE")
-REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/callback")
+CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
+CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+REDIRECT_URI = os.getenv(
+    "SPOTIFY_REDIRECT_URI",
+    "https://project-api-spotifywrapper.onrender.com/callback",
+)
 
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -57,12 +60,10 @@ def get_db():
 # ---------------------------------------------------------------------
 
 def now_utc() -> datetime:
-    # SQLite DateTime is typically stored as naive datetimes.
     return datetime.utcnow()
 
 
 def parse_played_at(ts: str) -> datetime:
-    # Spotify returns ISO strings like "2026-03-04T20:17:35.123Z"
     dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
@@ -81,7 +82,11 @@ def _basic_auth_header() -> Dict[str, str]:
 
 
 def token_exchange(code: str) -> requests.Response:
-    data = {"grant_type": "authorization_code", "code": code, "redirect_uri": REDIRECT_URI}
+    data = {
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+    }
     return requests.post(TOKEN_URL, headers=_basic_auth_header(), data=data, timeout=20)
 
 
@@ -91,9 +96,6 @@ def refresh_access_token(refresh_token: str) -> requests.Response:
 
 
 def get_current_user(db: Session) -> Optional[User]:
-    """
-    Local single-user behavior: last user with a token is treated as "current".
-    """
     return (
         db.execute(
             select(User)
@@ -106,23 +108,18 @@ def get_current_user(db: Session) -> Optional[User]:
 
 
 def ensure_fresh_token(db: Session, user: User) -> Optional[str]:
-    """
-    Returns a usable access token if available; refreshes if needed.
-    """
     if not user.access_token:
         return None
 
     if user.token_expires_at is None:
         return user.access_token
 
-    # Refresh if expired or about to expire (within 30s)
     if now_utc() >= (user.token_expires_at - timedelta(seconds=30)):
         if not user.refresh_token:
             return None
 
         rr = refresh_access_token(user.refresh_token)
         if rr.status_code != 200:
-            # Refresh failed => force re-login
             user.access_token = None
             user.refresh_token = None
             user.token_expires_at = None
@@ -140,12 +137,6 @@ def ensure_fresh_token(db: Session, user: User) -> Optional[str]:
 
 
 def spotify_get(db: Session, endpoint: str, params: dict | None = None) -> Any:
-    """
-    Wrapper around Spotify GET calls that:
-      - validates user auth
-      - refreshes tokens when needed
-      - returns JSONResponse for auth / error cases
-    """
     user = get_current_user(db)
     if not user:
         return unauthorized()
@@ -157,7 +148,6 @@ def spotify_get(db: Session, endpoint: str, params: dict | None = None) -> Any:
     headers = {"Authorization": f"Bearer {token}"}
     r = requests.get(f"{API_BASE}{endpoint}", headers=headers, params=params, timeout=20)
 
-    # If rejected, attempt one refresh + retry (helps if token became invalid early)
     if r.status_code == 401 and user.refresh_token:
         rr = refresh_access_token(user.refresh_token)
         if rr.status_code == 200:
@@ -264,6 +254,7 @@ def play_exists(db: Session, user_id: int, track_id: int, played_at: datetime) -
 def home():
     return {
         "message": "Spotify Analytics Project Running",
+        "redirect_uri": REDIRECT_URI,
         "next": [
             "GET /login (browser)",
             "GET /login-url (copy/paste into browser)",
@@ -277,6 +268,12 @@ def home():
 
 @app.get("/login-url")
 def login_url():
+    if not CLIENT_ID or not CLIENT_SECRET:
+        return JSONResponse(
+            {"error": "missing_config", "message": "SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET is missing."},
+            status_code=500,
+        )
+
     state = secrets.token_urlsafe(16)
     STATE_STORE.add(state)
 
@@ -289,12 +286,19 @@ def login_url():
     }
     return {
         "url": f"{AUTH_URL}?{urlencode(params)}",
+        "redirect_uri": REDIRECT_URI,
         "note": "Copy/paste into a browser tab to log in (Swagger can't follow redirects).",
     }
 
 
 @app.get("/login")
 def login():
+    if not CLIENT_ID or not CLIENT_SECRET:
+        return JSONResponse(
+            {"error": "missing_config", "message": "SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET is missing."},
+            status_code=500,
+        )
+
     state = secrets.token_urlsafe(16)
     STATE_STORE.add(state)
 
@@ -310,7 +314,6 @@ def login():
 
 @app.get("/callback")
 def callback(code: str, state: str, db: Session = Depends(get_db)):
-    # Make state single-use to avoid replays
     if state not in STATE_STORE:
         return JSONResponse({"error": "Invalid state"}, status_code=400)
     STATE_STORE.discard(state)
@@ -324,7 +327,6 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     refresh_token = token_json.get("refresh_token")
     expires_in = int(token_json.get("expires_in", 3600))
 
-    # Fetch /me to identify user
     headers = {"Authorization": f"Bearer {access_token}"}
     me = requests.get(f"{API_BASE}/me", headers=headers, timeout=20)
     if me.status_code != 200:
@@ -350,7 +352,6 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     user.token_expires_at = now_utc() + timedelta(seconds=expires_in)
     db.commit()
 
-    # Absolute redirect avoids edge cases
     return RedirectResponse(url="/me")
 
 
@@ -415,7 +416,6 @@ def sync_recent(db: Session = Depends(get_db), limit: int = 50):
         track_obj = item["track"]
         played_at = parse_played_at(item["played_at"])
 
-        # Primary artist (Spotify returns multiple sometimes; we use the first)
         artist_obj = track_obj["artists"][0]
         artist = get_or_create_artist(db, artist_obj["id"], artist_obj["name"])
 
@@ -782,7 +782,6 @@ def track_timeseries(track_id: int, db: Session = Depends(get_db), days: int = 9
 def analytics_insights(db: Session = Depends(get_db), days: int = 90):
     cutoff = now_utc() - timedelta(days=days)
 
-    # Top weekday (SQLite %w => 0=Sun..6=Sat)
     weekday_rows = (
         db.query(func.strftime("%w", Play.played_at).label("w"), func.count(Play.id).label("plays"))
         .filter(Play.played_at >= cutoff)
@@ -796,7 +795,6 @@ def analytics_insights(db: Session = Depends(get_db), days: int = 90):
         w, p = weekday_rows[0]
         top_weekday = {"weekday": weekday_map.get(str(w), str(w)), "plays": p}
 
-    # Top hour
     hour_rows = (
         db.query(func.strftime("%H", Play.played_at).label("hour"), func.count(Play.id).label("plays"))
         .filter(Play.played_at >= cutoff)
@@ -809,7 +807,6 @@ def analytics_insights(db: Session = Depends(get_db), days: int = 90):
         h, p = hour_rows[0]
         top_hour = {"hour": int(h), "plays": p}
 
-    # Daily plays for streaks
     daily = (
         db.query(func.date(Play.played_at).label("day"), func.count(Play.id).label("plays"))
         .filter(Play.played_at >= cutoff)
@@ -823,7 +820,6 @@ def analytics_insights(db: Session = Depends(get_db), days: int = 90):
     def to_date(s: str) -> datetime:
         return datetime.fromisoformat(s)
 
-    # Longest streak inside the window
     longest = 0
     cur = 0
     prev = None
@@ -839,7 +835,6 @@ def analytics_insights(db: Session = Depends(get_db), days: int = 90):
         prev = d
     longest = max(longest, cur)
 
-    # Current streak looking back from today
     today = now_utc().date()
     current = 0
     for i in range(days + 1):
@@ -866,5 +861,5 @@ def analytics_insights(db: Session = Depends(get_db), days: int = 90):
         "top_hour": top_hour,
         "current_streak_days": current,
         "longest_streak_days": longest,
-        "diversity_ratio": diversity,  
+        "diversity_ratio": diversity,
     }
