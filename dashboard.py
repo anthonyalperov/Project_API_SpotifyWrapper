@@ -6,8 +6,7 @@ import plotly.express as px
 import requests
 import streamlit as st
 
-API = os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
-
+API = os.getenv("API_BASE_URL", "https://project-api-spotifywrapper.onrender.com").rstrip("/")
 st.set_page_config(page_title="Spotify // Telemetry", layout="wide")
 
 
@@ -102,7 +101,7 @@ top_n = st.sidebar.slider("Top N", 5, 25, 10)
 sync_limit = st.sidebar.selectbox("Sync limit", [10, 20, 30, 50], index=3)
 
 st.sidebar.markdown("---")
-pill("API: 127.0.0.1:8000")
+pill(f"API: {API}")
 pill(f"WINDOW: last {days}d")
 pill(f"TOP_N: {top_n}")
 
