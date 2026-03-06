@@ -12,8 +12,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .db import Base, SessionLocal, engine
-from . import models
+from db import Base, SessionLocal, engine
+from models import Artist, Play, Track, User
 
 # ---------------------------------------------------------------------
 # Config / Constants
