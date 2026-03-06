@@ -1,12 +1,12 @@
 import math
-
+import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import plotly.express as px
 import requests
 import streamlit as st
 
-API = "http://127.0.0.1:8000"
+API = os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
 st.set_page_config(page_title="Spotify // Telemetry", layout="wide")
 
@@ -16,22 +16,32 @@ st.set_page_config(page_title="Spotify // Telemetry", layout="wide")
 # ---------------------------------------------------------------------
 
 def get_json(path: str):
-    r = requests.get(f"{API}{path}", timeout=30)
+    try:
+        r = requests.get(f"{API}{path}", timeout=30)
+    except requests.exceptions.RequestException as e:
+        return {"_error": True, "_detail": f"API connection failed: {e}"}
 
     if r.status_code == 401:
         return {"_unauthorized": True, "_detail": r.text}
 
-    r.raise_for_status()
+    if not r.ok:
+        return {"_error": True, "_detail": r.text}
+
     return r.json()
 
 
 def post_json(path: str):
-    r = requests.post(f"{API}{path}", timeout=60)
+    try:
+        r = requests.post(f"{API}{path}", timeout=60)
+    except requests.exceptions.RequestException as e:
+        return {"_error": True, "_detail": f"API connection failed: {e}"}
 
     if r.status_code == 401:
         return {"_unauthorized": True, "_detail": r.text}
 
-    r.raise_for_status()
+    if not r.ok:
+        return {"_error": True, "_detail": r.text}
+
     return r.json()
 
 

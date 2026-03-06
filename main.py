@@ -351,7 +351,7 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     db.commit()
 
     # Absolute redirect avoids edge cases
-    return RedirectResponse(url="http://127.0.0.1:8000/me")
+    return RedirectResponse(url="/me")
 
 
 @app.get("/auth/status")
