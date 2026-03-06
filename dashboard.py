@@ -6,7 +6,7 @@ import plotly.express as px
 import requests
 import streamlit as st
 
-API = os.getenv("API_BASE_URL", "https://project-api-spotifywrapper.onrender.com").rstrip("/")
+API = st.secrets.get("API_BASE_URL", "https://project-api-spotifywrapper.onrender.com").rstrip("/")
 st.set_page_config(page_title="Spotify // Telemetry", layout="wide")
 
 
